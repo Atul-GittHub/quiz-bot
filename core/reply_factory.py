@@ -28,25 +28,49 @@ def generate_bot_responses(message, session):
     return bot_responses
 
 
-def record_current_answer(answer, current_question_id, session):
-    '''
-    Validates and stores the answer for the current question to django session.
-    '''
-    return True, ""
+def record_current_answer(self, user_id, answer):
+    # Validate the answer (e.g., check if it's in the correct format)
+    if not isinstance(answer, str):
+        return False
+
+    # Store the answer in the session or database
+    user_session = self.get_user_session(user_id)
+    user_session['current_answer'] = answer
+    self.save_user_session(user_id, user_session)
+
+    return True
 
 
-def get_next_question(current_question_id):
-    '''
-    Fetches the next question from the PYTHON_QUESTION_LIST based on the current_question_id.
-    '''
+def get_next_question(self, user_id):
+    user_session = self.get_user_session(user_id)
+    questions = self.get_all_questions()
+    
+    # Determine the next question index
+    current_question_index = user_session.get('current_question_index', 0)
+    
+    if current_question_index >= len(questions):
+        return None  # No more questions
+    
+    next_question = questions[current_question_index]
+    user_session['current_question_index'] = current_question_index + 1
+    self.save_user_session(user_id, user_session)
+    
+    return next_question
 
-    return "dummy question", -1
 
+def generate_final_response(self, user_id):
+    user_session = self.get_user_session(user_id)
+    answers = user_session.get('answers', [])
+    correct_answers = self.get_correct_answers()
 
-def generate_final_response(session):
-    '''
-    Creates a final result message including a score based on the answers
-    by the user for questions in the PYTHON_QUESTION_LIST.
-    '''
+    # Calculate the score
+    score = sum(1 for user_answer, correct_answer in zip(answers, correct_answers) if user_answer == correct_answer)
 
-    return "dummy result"
+    # Generate the final response
+    response = {
+        "score": score,
+        "total_questions": len(correct_answers),
+        "message": f"Your final score is {score} out of {len(correct_answers)}."
+    }
+
+    return response
